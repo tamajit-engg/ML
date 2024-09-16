@@ -1,0 +1,90 @@
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
+import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+import matplotlib.pyplot as plt
+
+# Load the dataset, ensuring correct file path and handling potential errors
+try:
+    file_path = '/content/drive/MyDrive/voice.csv'  # Verify this path
+    data = pd.read_csv(file_path)
+except FileNotFoundError:
+    print(f"Error: File not found at {file_path}")
+    # Handle the error appropriately, e.g., exit or ask for a different path
+except Exception as e:
+    print(f"Error loading CSV: {e}")
+    # Handle other potential errors
+
+# Display the first few rows to verify data loading
+print(data.head())
+
+# Check the actual column names in your DataFrame
+print(data.columns)
+
+# Assuming the correct label column is 'label' (adjust if necessary)
+label_column = 'label'  # Replace with the actual column name
+
+# Encode the labels
+label_encoder = LabelEncoder()
+data[label_column] = label_encoder.fit_transform(data[label_column])
+
+# Separate features and labels using the correct column name
+X = data.drop(label_column, axis=1)
+y = data[label_column]
+
+# Scale the features
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Reshape the data for LSTM
+X_train = np.reshape(X_train, (X_train.shape[0], 1, X_train.shape[1]))
+X_test = np.reshape(X_test, (X_test.shape[0], 1, X_test.shape[1]))
+
+# Build the LSTM model
+model = Sequential()
+model.add(LSTM(128, input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
+model.add(Dropout(0.2))
+model.add(LSTM(64, return_sequences=False))
+model.add(Dropout(0.2))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the model
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# Display the model's architecture
+model.summary()
+
+# Train the model
+history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test))
+
+# Evaluate the model
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+print(f'Test Loss: {test_loss}')
+print(f'Test Accuracy: {test_accuracy}')
+
+# Plot the accuracy and loss curves
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+from tensorflow.keras.models import load_model
+model.save('/content/drive/MyDrive/Colab Notebooks/saved model/gender_recognition_lstm.h5')
+
